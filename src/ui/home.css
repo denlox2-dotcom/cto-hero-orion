@@ -61,7 +61,7 @@
 .menu-leaderboard .leaderboard-scroll { scrollbar-width: thin; }
 .menu-leaderboard .leaderboard-scroll table { font-size: max(11px, .95cqw); }
 .menu-leaderboard .leaderboard-scroll th { background: var(--surface); font-size: max(8px, .68cqw); padding: .7cqw .4cqw; }
-.menu-leaderboard .leaderboard-scroll td { padding: .5cqw .4cqw; vertical-align: middle; line-height: 1.25; }
+.menu-leaderboard .leaderboard-scroll td { padding: .35cqw .4cqw; vertical-align: middle; line-height: 1.25; }
 .menu-leaderboard .leaderboard-scroll th:first-child { width: 10%; }
 .menu-leaderboard .leaderboard-scroll th:nth-child(2) { width: 44%; }
 .menu-leaderboard .leaderboard-scroll th:nth-child(3) { width: 18%; text-align: right; }
