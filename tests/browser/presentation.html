@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>Проверка помощи ПАК</title></head>
+<body>
+  <button id="pause" type="button">Пауза</button><button id="restart" type="button">Новая попытка</button><div id="fixture"></div>
+  <script type="module">
+    import Phaser from 'phaser';
+    import { RoomScene } from '/src/game/RoomScene.ts';
+    import { getRooms } from '/src/core/rooms.ts';
+    import { createRun } from '/src/core/rules.ts';
+    import { BALANCE } from '/src/core/balance.ts';
+    import { KeyboardInput } from '/src/game/input.ts';
+    import { GameAudio } from '/src/game/audio.ts';
+
+    window.startPresentationCase = options => {
+      const config = getRooms(options.difficulty ?? 'easy')[3];
+      const boss = config.entities.find(entity => entity.kind === 'boss');
+      config.spawn = { x: boss.x - 114, y: 500 };
+      config.platforms = [{ x: 0, y: 508, width: 960, height: 32 }];
+      config.entities = [
+        { ...boss, id: 'boss' },
+        { id: 'pro', kind: 'pro', x: config.spawn.x, y: 508 },
+        { id: 'debt', kind: 'debt', x: 500, y: 508, patrol: [490, 510], required: false },
+        { id: 'fire', kind: 'fire', x: 34, y: 508, required: false },
+        { id: 'leak', kind: 'leak', x: 150, y: 508, required: false },
+      ];
+      const prepareRun = () => {
+        const run = createRun(options.difficulty ?? 'easy');
+        if (options.fullPack !== false) {
+          run.amulets.push('server', 'office', 'perimeter', 'production');
+          run.tokens.push('server', 'office', 'perimeter');
+        }
+        return run;
+      };
+      const input = new KeyboardInput(), audio = new GameAudio();
+      audio.enabled = false;
+      let scene, run, starts = 0, endCount = 0, delivered = false, transitions = [];
+      const visuals = () => Object.fromEntries(['pak-call', 'pak-cloud', 'pak-assist'].map(name => {
+        const object = scene.children.getByName(name);
+        return [name, object ? { visible: object.visible, alpha: object.alpha, x: object.x, y: object.y, text: object.text } : null];
+      }));
+      Object.defineProperty(window, '__uptime', { get: () => scene?.player?.body ? {
+        screen: delivered ? 'result' : 'playing', starts, endCount, transitions: structuredClone(transitions),
+        run: structuredClone(run), room: scene.snapshot, result: scene.rules.result,
+        physicsPaused: scene.physics.world.isPaused, visuals: visuals(),
+      } : null });
+      const makeOptions = () => {
+        run = prepareRun(); delivered = false; transitions = [];
+        return { config, run, demo: false, input, audio,
+          onReady: ready => {
+            scene = ready; starts++; game.canvas.tabIndex = 0; game.canvas.focus();
+            let previous = '';
+            scene.events.on('postupdate', () => {
+              if (scene.pak.phase !== previous) {
+                previous = scene.pak.phase;
+                transitions.push({ phase: previous, at: performance.now() });
+              }
+            });
+          },
+          onEnd: () => { delivered = true; endCount++; transitions.push({ phase: 'delivered', at: performance.now() }); },
+        };
+      };
+      const game = new Phaser.Game({
+        type: Phaser.AUTO, parent: 'fixture', width: 960, height: 540, pixelArt: true, roundPixels: true,
+        backgroundColor: '#15212c', fps: { smoothStep: false },
+        physics: { default: 'arcade', arcade: { gravity: { x: 0, y: BALANCE.gravity }, fixedStep: true, fps: 60 } },
+        audio: { noAudio: true }, banner: false,
+        callbacks: { postBoot: booted => {
+          booted.scene.add('room', new RoomScene(), false);
+          booted.scene.start('room', makeOptions());
+        } },
+      });
+      document.querySelector('#pause').onclick = () => {
+        scene.setPaused(!scene.rules.paused); input.enabled = !scene.rules.paused;
+        if (!scene.rules.paused) { game.loop.resetDelta(); game.canvas.focus(); }
+      };
+      document.querySelector('#restart').onclick = () => {
+        game.loop.resetDelta(); scene.scene.restart(makeOptions());
+      };
+    };
+  </script>
+</body>
+</html>

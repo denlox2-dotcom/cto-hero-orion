@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>Проверка взаимодействий</title></head>
+<body>
+  <button id="pause" type="button">Пауза</button><button id="restart" type="button">Перезапустить комнату</button><div id="fixture"></div>
+  <script type="module">
+    import Phaser from 'phaser';
+    import { RoomScene } from '/src/game/RoomScene.ts';
+    import { getRooms } from '/src/core/rooms.ts';
+    import { createRun } from '/src/core/rules.ts';
+    import { BALANCE } from '/src/core/balance.ts';
+    import { KeyboardInput } from '/src/game/input.ts';
+    import { GameAudio } from '/src/game/audio.ts';
+
+    window.startInteractionCase = options => {
+      const config = getRooms(options.difficulty ?? 'standard')[1];
+      Object.assign(config, options.config);
+      if (options.config.onlyBacklogX !== undefined) {
+        config.entities = config.entities.filter(entity => entity.kind === 'backlog' && entity.x === options.config.onlyBacklogX);
+        config.entities.push({ id: 'pending', kind: 'backlog', x: 900, y: 100 });
+      }
+      const run = createRun(options.difficulty ?? 'standard');
+      const input = new KeyboardInput(), audio = new GameAudio();
+      audio.enabled = false;
+      let scene, starts = 0;
+      Object.defineProperty(window, '__uptime', { get: () => scene?.player?.body ? {
+        screen: scene.rules.status === 'ended' ? 'result' : 'playing', starts,
+        run: structuredClone(run),
+        room: { ...scene.snapshot, result: scene.rules.result,
+          playerBody: { x: scene.player.body.x, y: scene.player.body.y, width: scene.player.body.width, height: scene.player.body.height },
+          actors: scene.actors.map(actor => ({ ...scene.snapshot.actors.find(item => item.id === actor.spec.id),
+            movingShell: actor.movingShell, shellHits: actor.shellHits, vx: actor.sprite.body.velocity.x,
+            visible: actor.sprite.visible, bounds: actor.sprite.getBounds(),
+          })),
+          objectives: [...scene.rules.objectives.values()].map(objective => ({ ...objective })),
+        },
+      } : null });
+      const game = new Phaser.Game({
+        type: Phaser.AUTO, parent: 'fixture', width: 960, height: 540, pixelArt: true, roundPixels: true,
+        backgroundColor: '#15212c', fps: { smoothStep: false },
+        physics: { default: 'arcade', arcade: { gravity: { x: 0, y: BALANCE.gravity }, fixedStep: true, fps: 60 } },
+        audio: { noAudio: true }, banner: false,
+        callbacks: { postBoot: booted => {
+          booted.scene.add('room', new RoomScene(), false);
+          booted.scene.start('room', { config, run, demo: false, input, audio,
+            onReady: ready => {
+              scene = ready; starts++; booted.canvas.tabIndex = 0; booted.canvas.focus();
+              if (options.config.pauseBeforeHeadStrike) {
+                let pausedAtStrike = false;
+                scene.events.on('postupdate', () => {
+                  const body = scene.player.body;
+                  // Pause after the jump starts, before its first movement step.
+                  if (!pausedAtStrike && body.velocity.y < -500 && body.y >= 460) {
+                    pausedAtStrike = true; scene.setPaused(true); input.enabled = false;
+                  }
+                });
+              }
+              if (options.config.renderAgainAfterStomp) {
+                let renderedAfterStomp = false;
+                scene.events.on('postupdate', () => {
+                  if (!renderedAfterStomp && scene.actors.some(actor => actor.cycle?.state === 'ticket')) {
+                    renderedAfterStomp = true;
+                    // Exercise a render update with no new physics step after the bounce.
+                    scene.update(0, 0);
+                  }
+                });
+              }
+            }, onEnd() {},
+          });
+        } },
+      });
+      document.querySelector('#pause').onclick = () => {
+        scene.setPaused(!scene.rules.paused); input.enabled = !scene.rules.paused;
+        if (!scene.rules.paused) game.canvas.focus();
+      };
+      document.querySelector('#restart').onclick = () => scene.scene.restart();
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+# Operating system and editor files
+.DS_Store
+.AppleDouble
+*.swp
+
+# Dependencies, build output and generated test artifacts
+node_modules/
+dist/
+test-results/
+playwright-report/
+blob-report/
+output/
+coverage/
+*.tsbuildinfo
+*.log
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+admin-key.txt
+
+# Private runtime data, exports and backups
+data/
+local-data/
+*.sqlite*
+*.db
+*.csv
+*.bak
+
+# Local agent workspaces and history
+.openai/
+.codex/
+.worktrees/
+archive/
+references/

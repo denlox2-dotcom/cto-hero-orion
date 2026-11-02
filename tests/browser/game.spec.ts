@@ -1,0 +1,102 @@
+import { registerPlayer } from '../helpers/registration';
+import { test, expect } from '@playwright/test';
+import { completeKeyboardRoute, snapshot, moveTo, jumpTo } from './keyboard-route';
+test('start, keyboard movement, pause and resume', async ({page}) => {
+  const errors:string[]=[]; page.on('pageerror',e=>errors.push(e.message));
+  await page.goto('/');await registerPlayer(page);
+  await expect(page.getByRole('button',{name:'Начать смену'})).toBeVisible();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('[data-screen="playing"]')).toBeVisible();
+  await page.waitForTimeout(1400);
+  await expect(page.getByTestId('room-title')).toHaveText('Серверная');
+  const before=(await snapshot(page)).room.x;
+  await page.keyboard.down('KeyD'); await page.waitForTimeout(300); await page.keyboard.up('KeyD');
+  expect((await snapshot(page)).room.x).toBeGreaterThan(before+40);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('heading',{name:'Смена на паузе'})).toBeVisible();
+  const time=await page.getByTestId('timer').textContent();
+  await page.waitForTimeout(1200);
+  expect(await page.getByTestId('timer').textContent()).toBe(time);
+  await page.getByRole('button',{name:'Продолжить'}).click();
+  await expect(page.getByRole('heading',{name:'Смена на паузе'})).not.toBeVisible();
+  const session=await page.context().newCDPSession(page);
+  const russianBefore=(await snapshot(page)).room.x;
+  await session.send('Input.dispatchKeyEvent',{type:'keyDown',key:'ф',code:'KeyA',windowsVirtualKeyCode:65});
+  await page.waitForTimeout(250);
+  await session.send('Input.dispatchKeyEvent',{type:'keyUp',key:'ф',code:'KeyA',windowsVirtualKeyCode:65});
+  expect((await snapshot(page)).room.x).toBeLessThan(russianBefore-30);
+  await page.evaluate(()=>window.dispatchEvent(new Event('blur')));
+  await expect(page.getByRole('heading',{name:'Смена на паузе'})).toBeVisible();
+  expect(errors).toEqual([]);
+});
+test('complete all four rooms with normal keyboard input',async({page})=>{
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto('/');await registerPlayer(page);await expect(page.getByRole('button',{name:'Начать смену'})).toBeVisible();
+  await completeKeyboardRoute(page);
+  await expect(page.getByText('RELEASE!',{exact:true})).toBeVisible();
+  await page.screenshot({path: test.info().outputPath('screenshots', 'full-victory.png'),fullPage:true});
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('room-title')).toHaveText('Серверная');
+  expect((await snapshot(page)).run.tokens).toEqual([]);
+  await expect(page.locator('.journey-step.is-failed')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+test('slow rendering does not slow the game clock',async({page})=>{
+  await page.addInitScript(()=>{
+    window.requestAnimationFrame=callback=>window.setTimeout(()=>callback(performance.now()),100);
+    window.cancelAnimationFrame=id=>clearTimeout(id);
+  });
+  await page.goto('/');await registerPlayer(page);await page.getByRole('radio',{name:'Средняя',exact:true}).click();await page.getByRole('button',{name:'Начать смену'}).click();
+  await page.waitForFunction(()=>(window as any).__uptime?.room?.status==='playing');
+  const before=(await snapshot(page)).room.remaining;
+  await page.waitForTimeout(1100);
+  const elapsed=before-(await snapshot(page)).room.remaining;
+  expect(elapsed).toBeGreaterThan(0.85);expect(elapsed).toBeLessThan(1.35);
+});
+test('coffee respawns and the optional GPU booster activates',async({page})=>{
+  await page.goto('/');await registerPlayer(page);
+  await page.getByRole('radio',{name:'Средняя',exact:true}).click();
+  await page.getByRole('button',{name:'Начать смену'}).focus();
+  await page.keyboard.press('Space');
+  await page.waitForFunction(()=>(window as any).__uptime?.room?.status==='playing');
+  await moveTo(page,34);
+  await moveTo(page,110);
+  await page.keyboard.down('KeyE');await page.waitForTimeout(6200);await page.keyboard.up('KeyE');
+  expect((await snapshot(page)).room.energy).toBeLessThan(55);
+  await moveTo(page,34);
+  expect((await snapshot(page)).room.energy).toBeGreaterThan(90);
+  await moveTo(page,110);
+  await page.keyboard.down('KeyE');await page.waitForTimeout(5200);await page.keyboard.up('KeyE');
+  expect((await snapshot(page)).room.actors.find((a:any)=>a.kind==='coffee').active).toBe(true);
+  await moveTo(page,34);
+  expect((await snapshot(page)).room.energy).toBeGreaterThan(90);
+  await moveTo(page,146);
+  const gpuX=(await snapshot(page)).room.actors.find((a:any)=>a.kind==='gpu').x;
+  await jumpTo(page,gpuX);
+  expect((await snapshot(page)).room.gpu).toBeGreaterThan(13);
+});
+test('restart after suspended animation frames preserves the new room time',async({page})=>{
+  await page.addInitScript(()=>{
+    const nativeFrame=window.requestAnimationFrame.bind(window),pending:FrameRequestCallback[]=[];
+    (window as any).__holdFrames=false;
+    window.requestAnimationFrame=callback=>nativeFrame(time=>{
+      if((window as any).__holdFrames)pending.push(callback);else callback(time);
+    });
+    (window as any).__releaseFrames=()=>{
+      (window as any).__holdFrames=false;
+      for(const callback of pending.splice(0))nativeFrame(callback);
+    };
+  });
+  await page.goto('/');await registerPlayer(page);await page.getByRole('radio',{name:'Средняя',exact:true}).click();await page.getByRole('button',{name:'Начать смену'}).click();
+  await page.waitForFunction(()=>(window as any).__uptime?.room?.status==='playing');
+  await page.keyboard.press('Escape');
+  await page.evaluate(()=>{(window as any).__holdFrames=true;});
+  await page.waitForTimeout(3500);
+  await page.getByRole('button',{name:'Начать заново'}).focus();
+  await page.keyboard.press('Enter');
+  await page.evaluate(()=>(window as any).__releaseFrames());
+  await page.waitForTimeout(200);
+  const s=await snapshot(page);
+  expect(s.screen).toBe('playing');expect(s.room.remaining).toBeGreaterThan(39.5);
+  expect(s.room.ogn).toBeLessThan(0.5);expect(s.run.results).toEqual([]);
+});

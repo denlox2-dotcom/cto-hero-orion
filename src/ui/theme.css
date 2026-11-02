@@ -1,0 +1,87 @@
+/* AI Hub and K2 palettes. Sources and usage: docs/ARCHITECTURE.md. */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url('../assets/fonts/ibm-plex-sans-variable.ttf') format('truetype');
+  font-weight: 100 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+  --font-brand: 'IBM Plex Sans', sans-serif;
+  --font-display: 'IBM Plex Sans', sans-serif;
+  --font-body: 'IBM Plex Sans', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --background: #161725;
+  --surface: #252637;
+  --surface-raised: #303246;
+  --ink: #ffffff;
+  --muted: #c7d2e9;
+  --line: #4c5066;
+  --line-soft: #ffffff1f;
+  --brand: #ff006c;
+  --brand-hover: #ff3389;
+  --brand-warm: #d2333b;
+  --action: var(--brand);
+  --action-hover: var(--brand-hover);
+  --action-ink: var(--background);
+  --selection-ink: var(--background);
+  --blue: #3f63be;
+  --blue-deep: #23376a;
+  --blue-soft: #c7d2e9;
+  --taupe: #a78f87;
+  --success: #a7dec0;
+  --warning: #e8c86e;
+  --danger: #f3b4b0;
+  --meter-track: #44475c;
+  --shadow: 0 18px 60px #16172550;
+  --shell-background:
+    radial-gradient(circle at 20% 0%, #3f63be3d, transparent 34%),
+    linear-gradient(135deg, var(--background) 0%, var(--blue-deep) 48%, var(--surface) 100%);
+  /* Shared chrome matches AI Hub's warm and blue ambient layers. */
+  --chrome-background:
+    radial-gradient(circle at 32px 0, color-mix(in srgb, var(--brand-warm) 18%, transparent), transparent 34%),
+    linear-gradient(90deg, color-mix(in srgb, var(--blue) 16%, transparent), transparent 48%),
+    #161725c7;
+  /* The same motif, expanded across the game's large menu and final panels. */
+  --brand-background:
+    radial-gradient(ellipse at 0% 0%, color-mix(in srgb, var(--brand-warm) 30%, transparent), transparent 55%),
+    linear-gradient(135deg, var(--background) 0%, var(--blue-deep) 48%, var(--surface) 100%);
+}
+
+:root[data-theme='k2'] {
+  color-scheme: light;
+  --font-brand: 'IBM Plex Sans', sans-serif;
+  --font-display: 'IBM Plex Sans', sans-serif;
+  --background: #edeef2;
+  --surface: #ffffff;
+  --surface-raised: #f5f5f8;
+  --ink: #161725;
+  --muted: #626479;
+  --line: #dcdde5;
+  --line-soft: #16172524;
+  --brand: #23376a;
+  --brand-hover: #3f5994;
+  --brand-warm: #a78f87;
+  --action: #a78f87;
+  --action-hover: #bba59d;
+  --action-ink: #161725;
+  --selection-ink: #161725;
+  --blue: #3f63be;
+  --blue-deep: #23376a;
+  --blue-soft: #c7d2e9;
+  --taupe: #8e7168;
+  --success: #256449;
+  --warning: #815b20;
+  --danger: #9d4246;
+  --meter-track: #dcdde5;
+  --shadow: 0 18px 60px #16172524;
+  --shell-background:
+    radial-gradient(circle at 20% 0%, #3f63be26, transparent 34%),
+    linear-gradient(135deg, #edeef2 0%, #d5d2d8 55%, #edeef2 100%);
+  --chrome-background: #161725;
+  --brand-background:
+    radial-gradient(ellipse at 0% 0%, #a78f872a, transparent 44%),
+    linear-gradient(135deg, #ffffff 0%, #edeef2 100%);
+}

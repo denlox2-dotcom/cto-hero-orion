@@ -1,0 +1,33 @@
+import { registerPlayer } from '../helpers/registration';
+import { test,expect } from '@playwright/test';
+test('built game runs using only local resources',async({page,baseURL})=>{
+  const errors:string[]=[],external:string[]=[],failed:string[]=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  page.on('requestfailed',request=>failed.push(request.url()));
+  page.on('response',response=>{if(response.status()>=400)failed.push(response.url());});
+  await page.route('**/*',route=>{
+    const url=route.request().url();
+    if(new URL(url).origin===new URL(baseURL!).origin)return route.continue();
+    external.push(url);return route.abort();
+  });
+  await page.goto('/');await registerPlayer(page);
+  await expect(page.getByRole('button',{name:'Начать смену'})).toBeVisible();
+  expect(await page.evaluate(()=>('__uptime' in window))).toBe(false);
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('room-title')).toHaveText('Серверная');
+  await expect(page.locator('.pak-assembly')).toContainText('0/4');
+  await expect(page.locator('[data-amulet-slot]')).toHaveCount(4);
+  await page.waitForTimeout(2200);
+  expect(await page.locator('.pak-assembly img').evaluateAll(images => images.every(image => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
+  await page.keyboard.down('KeyD');await page.waitForTimeout(180);await page.keyboard.up('KeyD');
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(600);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('heading',{name:'Смена на паузе'})).toBeVisible();
+  const timer=await page.getByTestId('timer').textContent();
+  await page.waitForTimeout(1100);
+  expect(await page.getByTestId('timer').textContent()).toBe(timer);
+  await page.getByRole('button',{name:'Продолжить'}).click();
+  await page.screenshot({path: test.info().outputPath('screenshots', 'production-gameplay.png'),fullPage:true});
+  expect(external).toEqual([]);expect(failed).toEqual([]);expect(errors).toEqual([]);
+});
